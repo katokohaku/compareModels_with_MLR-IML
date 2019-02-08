@@ -1,0 +1,142 @@
+---
+title: "tune several models with mlr"
+author: "Satoshi Kato"
+date: "`r format(Sys.time(), '%Y/%m/%d')`"
+output:
+  html_document:
+    fig_caption: yes
+    pandoc_args:
+    - --from
+    - markdown+autolink_bare_uris+tex_math_single_backslash-implicit_figures
+    toc: yes
+    toc_depth: 4
+  word_document:
+    toc: yes
+    toc_depth: 3
+  pdf_document:
+    toc: yes
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+require(tidyverse)
+require(mlr)
+
+knitr::opts_knit$set(progress = TRUE, 
+                     verbose = TRUE, 
+                     root.dir = ".")
+
+knitr::opts_chunk$set(collapse = TRUE, 
+                      comment = "", 
+                      message = TRUE, 
+                      warning = FALSE, 
+                      echo=TRUE)
+set.seed(12345)
+```
+
+# create an mlr task and model
+
+regression task for Boston dataset.
+
+```{r}
+data("Boston", package  = "MASS")
+Boston.task = makeRegrTask(data = Boston, target = "medv")
+
+models <- c("lasso", "svm", "rf", "xgb")
+
+tune.ctrl <- makeTuneControlRandom()
+res.desc  <- makeResampleDesc("CV", iters = 2)
+
+
+learner <- NULL
+par.set <- NULL
+
+```
+
+# choose model 
+
+```{r listLearners, eval=FALSE}
+listLearners() %>%
+  filter(type == "regr") %>%
+  select(class, short.name, package)
+```
+
+# Model setup 
+
+## lasso
+
+```{r setup.lasso}
+# getLearnerParamSet(makeLearner("regr.glmnet"))
+learner[["lasso"]]<- makeLearner("regr.glmnet", alpha = 1, intercept = FALSE)
+par.set[["lasso"]] <- makeParamSet(
+  makeIntegerParam("s",     lower=1, upper=10^3))
+
+
+```
+
+## SVM
+
+```{r setup.svm}
+# getLearnerParamSet(makeLearner("regr.ksvm"))
+learner[["svm"]]  <- makeLearner("regr.ksvm")
+par.set[["svm"]]  <- makeParamSet(
+  makeNumericParam("C", lower = -3, upper = 3, trafo = function(x) 10^x),
+  makeNumericParam("sigma", lower = -3, upper = 3, trafo = function(x) 10^x))
+
+```
+
+## random forest
+
+```{r setup.rf}
+# getLearnerParamSet(makeLearner("regr.randomForest"))
+learner[["rf"]] <- makeLearner("regr.randomForest")
+par.set[["rf"]] <- makeParamSet(
+  makeIntegerParam("ntree", lower=50, upper=1000))
+
+```
+
+## XGBoost
+
+```{r setup.xgb}
+# getLearnerParamSet(makeLearner("regr.xgboost"))
+learner[["xgb"]] <- makeLearner("regr.xgboost", objective = "reg:linear")
+par.set[["xgb"]] <- makeParamSet(
+  makeIntegerParam("nrounds",   lower = 3L, upper = 50L),
+  makeIntegerParam("max_depth", lower = 3L, upper = 20L))
+
+```
+
+# tune model
+
+```{r tune.model}
+tuned.par.set <- NULL
+tuned.model <- NULL
+
+for(model.name in models) {
+  
+  print(model.name)
+  tuned.par.set[[model.name]] <- tuneParams(
+    learner[[model.name]], 
+    task = Boston.task, 
+    resampling = res.desc,
+    par.set = par.set[[model.name]],
+    control = tune.ctrl)
+  
+  # Create a new model using tuned hyperparameters
+  tuned.learner <- setHyperPars(
+    learner = learner[[model.name]],
+    par.vals = tuned.par.set[[model.name]]$x
+  )
+  
+  # Re-train parameters using tuned hyperparameters (and full training set)
+  tuned.model[[model.name]] <- train(tuned.learner, Boston.task)
+  
+}
+
+tuned.model %>% str(2)
+
+saveRDS(tuned.model, "./tuned_models.RDS")
+```
+
