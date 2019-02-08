@@ -1,0 +1,8 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+*.html
+*.md
+*files/*
+1_just_use_wrapper.Rmd
