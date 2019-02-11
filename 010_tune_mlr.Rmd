@@ -40,7 +40,7 @@ set.seed(12345)
 
 regression task for Boston dataset.
 
-```{r}
+```{r mlr.init}
 data("Boston", package  = "MASS")
 Boston.task = makeRegrTask(data = Boston, target = "medv")
 
