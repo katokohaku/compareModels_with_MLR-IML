@@ -1,0 +1,67 @@
+---
+title: "tune several models with mlr"
+author: "Satoshi Kato"
+date: "`r format(Sys.time(), '%Y/%m/%d')`"
+output:
+  html_document:
+    fig_caption: yes
+    pandoc_args:
+    - --from
+    - markdown+autolink_bare_uris+tex_math_single_backslash-implicit_figures
+    toc: yes
+    toc_depth: 4
+  word_document:
+    toc: yes
+    toc_depth: 3
+  pdf_document:
+    toc: yes
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+require(tidyverse)
+require(mlr)
+require(iml)
+
+knitr::opts_knit$set(progress = TRUE, 
+                     verbose = TRUE, 
+                     root.dir = ".")
+
+knitr::opts_chunk$set(collapse = TRUE, 
+                      comment = "", 
+                      message = TRUE, 
+                      warning = FALSE, 
+                      echo=TRUE)
+set.seed(12345)
+```
+
+# read mlr models
+
+regression task for Boston dataset.
+
+```{r setup}
+data("Boston", package  = "MASS")
+Boston.task = makeRegrTask(data = Boston, target = "medv")
+
+model.names <- c("lasso", "svm", "rf", "xgb")
+
+tuned.model <- readRDS("./tuned_models.RDS")
+tuned.model %>% str(2)
+```
+
+```{r}
+library("iml")
+X = Boston[which(names(Boston) != "medv")]
+
+predictor <- NULL
+for(mn in model.names){
+  print(mn)
+  model <- tuned.model[[mn]]
+  predictor[[mn]] <- Predictor$new(model, data = X, y = Boston$medv)
+}
+
+
+```
+

@@ -1,0 +1,153 @@
+---
+title: "tune several models with mlr"
+author: "Satoshi Kato"
+date: "`r format(Sys.time(), '%Y/%m/%d')`"
+output:
+  html_document:
+    fig_caption: yes
+    pandoc_args:
+    - --from
+    - markdown+autolink_bare_uris+tex_math_single_backslash-implicit_figures
+    toc: yes
+    toc_depth: 4
+  word_document:
+    toc: yes
+    toc_depth: 3
+  pdf_document:
+    toc: yes
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+require(tidyverse)
+require(mlr)
+require(iml)
+
+knitr::opts_knit$set(progress = TRUE, 
+                     verbose = TRUE, 
+                     root.dir = ".")
+
+knitr::opts_chunk$set(collapse = TRUE, 
+                      comment = "", 
+                      message = TRUE, 
+                      warning = FALSE, 
+                      echo=TRUE)
+set.seed(12345)
+```
+
+# read mlr models
+
+regression task for Boston dataset.
+
+```{r data.prep}
+library("DALEX")
+data(apartments)
+str(apartments)
+
+data("Boston", package  = "MASS")
+Boston.task = makeRegrTask(data = Boston, target = "medv")
+
+models <- c("lasso", "svm", "rf", "xgb")
+
+tuned.model <- readRDS("./tuned_models.RDS")
+# tuned.model %>% str(2)
+```
+
+# DALEX + mlr
+
+according to:
+
+https://rawgit.com/pbiecek/DALEX_docs/master/vignettes/DALEX_mlr.html
+
+# The explain() function
+
+```{r}
+# X = Boston[which(names(Boston) != "medv")]
+custom_predict <- function(object, newdata) {
+  pred <- predict(object, newdata=newdata)
+  response <- pred$data$response
+  return(response)
+}
+explainer <-  DALEX::explain(tuned.model[["svm"]], 
+                             data = Boston, 
+                             y    = Boston$medv,
+                             predict_function = custom_predict, label="rf")
+```
+
+# Model performance
+
+```{r}
+mp <- model_performance(explainer)
+
+plot(mp)
+plot(mp, geom = "boxplot")
+```
+
+# Variable importance
+
+```{r}
+var.imp <- variable_importance(explainer, loss_function = loss_root_mean_square)
+plot(var.imp)
+
+
+```
+
+For better comparison of the models we can hook the variabe importance at 0 using the type=difference.
+
+
+
+```{r}
+var.imp.diff <- variable_importance(explainer, loss_function = loss_root_mean_square, type="difference")
+
+plot(var.imp.diff)
+```
+
+# Variable response
+Explainers presented in this section are designed to better understand the relation between a variable and model output.
+
+For more details of methods desribed in this section see Variable response section in DALEX docs.
+
+## Partial Dependence Plot
+
+```{r}
+pdp  <- variable_response(explainer, variable =  "rm", type = "pdp")
+
+plot(pdp)
+```
+
+## Acumulated Local Effects plot
+```{r}
+ale  <- variable_response(explainer, variable =  "rm", type = "ale")
+
+plot(ale)
+```
+
+## Merging Path Plots
+
+Merging Path Plot is a method for exploration of a relation between a categorical variable and model outcome.
+
+Function variable_response() with the parameter type = "factor" calls factorMerger::mergeFactors() function.
+
+```{r}
+data(apartments, package = "DALEX")
+regr_task <- makeRegrTask(id = "ap", data = apartments, target = "m2.price")
+
+mpp <- makeLearner("regr.randomForest") %>% 
+  train(regr_task) %>% 
+  DALEX::explain(
+    data = apartmentsTest,
+    y = apartmentsTest$m2.price, 
+    predict_function = custom_predict,
+    label = "rf") %>% 
+  DALEX::variable_response(variable =  "district", type = "factor")
+
+plot(mpp)
+
+```
+
+# local surrogates
+
+https://rawgit.com/pbiecek/DALEX_docs/master/vignettes/Comparison_between_breakdown%2C_lime%2C_shapley.html
+

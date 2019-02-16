@@ -1,0 +1,141 @@
+---
+title: "tune several models with mlr"
+author: "Satoshi Kato"
+date: "`r format(Sys.time(), '%Y/%m/%d')`"
+output:
+  html_document:
+    fig_caption: yes
+    pandoc_args:
+    - --from
+    - markdown+autolink_bare_uris+tex_math_single_backslash-implicit_figures
+    toc: yes
+    toc_depth: 4
+  word_document:
+    toc: yes
+    toc_depth: 3
+  pdf_document:
+    toc: yes
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+require(tidyverse)
+require(mlr)
+require(iml)
+
+knitr::opts_knit$set(progress = TRUE, 
+                     verbose = TRUE, 
+                     root.dir = ".")
+
+knitr::opts_chunk$set(collapse = TRUE, 
+                      comment = "", 
+                      message = TRUE, 
+                      warning = FALSE, 
+                      echo=TRUE)
+set.seed(12345)
+```
+
+# read mlr models
+
+regression task for Boston dataset.
+
+```{r data.prep}
+data("Boston", package  = "MASS")
+Boston.task = makeRegrTask(data = Boston, target = "medv")
+
+models <- c("lasso", "svm", "rf", "xgb")
+
+tuned.model <- readRDS("./tuned_models.RDS")
+tuned.model %>% str(2)
+```
+
+# iml + mlr
+
+according to:
+
+https://www.r-bloggers.com/interpretable-machine-learning-with-iml-and-mlr/
+
+
+```{r}
+library("iml")
+X = Boston[which(names(Boston) != "medv")]
+
+predictor <- Predictor$new(tuned.model[["svm"]], data = X, y = Boston$medv)
+```
+
+# Feature importance
+
+We can measure how important each feature was for the predictions with FeatureImp. The feature importance measure works by shuffling each feature and measuring how much the performance drops. For this regression task we choose to measure the loss in performance with the mean absolute error (ÅemaeÅf); another choice would be the mean squared error (ÅemseÅf).
+
+```{r}
+imp = FeatureImp$new(predictor, loss = "mae")
+plot(imp)
+
+imp %>% str
+```
+# Partial dependence
+
+Besides learning which features were important, we are interested in how the features influence the predicted outcome. The Partial class implements partial dependence plots and individual conditional expectation curves. Each individual line represents the predictions (y-axis) for one data point when we change one of the features (e.g. ÅelstatÅf on the x-axis). The highlighted line is the point-wise average of the individual lines and equals the partial dependence plot. The marks on the x-axis indicates the distribution of the ÅelstatÅf feature, showing how relevant a region is for interpretation (little or no points mean that we should not over-interpret this region).
+
+```{r}
+pdp.obj = Partial$new(predictor, feature = "lstat")
+plot(pdp.obj)
+
+```
+```{r}
+pdp.obj$set.feature("rm")
+pdp.obj$center(min(Boston$rm))
+plot(pdp.obj)
+```
+
+Surrogate model
+Another way to make the models more interpretable is to replace the black box with a simpler model ??? a decision tree. We take the predictions of the black box model (in our case the random forest) and train a decision tree on the original features and the predicted outcome.
+The plot shows the terminal nodes of the fitted tree.
+The maxdepth parameter controls how deep the tree can grow and therefore how interpretable it is.
+
+
+```{r}
+tree = TreeSurrogate$new(predictor, maxdepth = 2)
+plot(tree)
+```
+
+# Explain single predictions with a local model
+
+Global surrogate model can improve the understanding of the global model behaviour.
+We can also fit a model locally to understand an individual prediction better. The local model fitted by LocalModel is a linear regression model and the data points are weighted by how close they are to the data point for wich we want to explain the prediction.
+
+```{r}
+
+lime.explain = LocalModel$new(predictor, x.interest = X[1,])
+lime.explain$results
+
+```
+
+```{r}
+plot(lime.explain)
+
+```
+
+
+# Explain single predictions with game theory
+
+An alternative for explaining individual predictions is a method from coalitional game theory named Shapley value.
+Assume that for one data point, the feature values play a game together, in which they get the prediction as a payout. The Shapley value tells us how to fairly distribute the payout among the feature values.
+
+```{r}
+
+shapley = Shapley$new(predictor, x.interest = X[1,])
+plot(shapley)
+```
+
+
+The results in data.frame form can be extracted like this:
+
+```{r}
+results = shapley$results
+head(results)
+
+```
+

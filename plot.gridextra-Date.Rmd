@@ -1,0 +1,47 @@
+---
+title: "Untitled"
+author: "Satoshi Kato"
+date: "2019”N2ŒŽ10“ú"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+require(tidyverse)
+require(data.table)
+require(magrittr)
+require(pforeach)
+require(knitr)
+require(kableExtra)
+library(scales)
+library(gridExtra)
+
+require(randomForest)
+
+knitr::opts_knit$set(progress = TRUE, verbose = TRUE, root.dir = ".")
+catf <- SKmisc::catf
+
+set.seed(9)
+```
+
+```{r}
+set.seed(4)
+date   <- seq(from = as.POSIXct("2012-01-01"), to = as.POSIXct("2014-12-31"), by = "days")
+value  <- c(rnorm(274, 50, 1), rnorm(274, 55, 1), rnorm(274, 55, 2), rnorm(274, 60, 2))
+df     <- data.frame(date, value)
+
+df$days<-as.Date(format(df$date,"%d-%m-2015"),format="%d-%m-%y")
+
+ggl <- pforeach(i=1:4, .c = list)({
+  ggplot(df, aes(x=days, y=value, color=factor(year(date)))) +
+  geom_line()+scale_x_date(labels = date_format("%b"))
+})
+
+ggl[[1]]
+pl <- lapply(1:11, function(.x) qplot(1:10, rnorm(10), main=paste("plot", .x)))
+pl %>% str(1)
+
+marrangeGrob(ggl, nrow=2, ncol=2)
+
+
+```
+
