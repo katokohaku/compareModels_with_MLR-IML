@@ -1,5 +1,5 @@
 ---
-title: "tune several models with mlr"
+title: "iml package with mlr"
 author: "Satoshi Kato"
 date: "`r format(Sys.time(), '%Y/%m/%d')`"
 output:
@@ -10,6 +10,7 @@ output:
     - markdown+autolink_bare_uris+tex_math_single_backslash-implicit_figures
     toc: yes
     toc_depth: 4
+    keep_md: yes
   word_document:
     toc: yes
     toc_depth: 3
@@ -118,6 +119,14 @@ plot(lime.explain)
 
 ```
 
+```{r}
+
+print(lime.explain$results)
+with(lime.explain$results,beta * x.recoded)
+
+```
+
+
 
 # Explain single predictions with game theory
 
@@ -134,8 +143,9 @@ plot(shapley)
 The results in data.frame form can be extracted like this:
 
 ```{r}
-results = shapley$results
-head(results)
-
+str(shapley)
+shapley$explain
+shapley$predictor %>% str
+with(shapley$results, sum(phi * phi.var))
 ```
 
