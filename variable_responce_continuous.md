@@ -1,7 +1,7 @@
 ---
 title: "measure variable responces of continuous feature with DALEX + mlr"
 author: "Satoshi Kato"
-date: "`r format(Sys.time(), '%Y/%m/%d')`"
+date: "2019/02/17"
 output:
   html_document:
     fig_caption: yes
@@ -21,29 +21,14 @@ editor_options:
   chunk_output_type: inline
 ---
 
-```{r setup, include=FALSE}
-require(tidyverse)
-require(mlr)
-require(iml)
-require(DALEX)
 
-knitr::opts_knit$set(progress = TRUE, 
-                     verbose = TRUE, 
-                     root.dir = ".")
-
-knitr::opts_chunk$set(collapse = TRUE, 
-                      comment = "", 
-                      message = TRUE, 
-                      warning = FALSE, 
-                      echo=TRUE)
-set.seed(12345)
-```
 
 # read mlr models
 
 regression task for Boston dataset.
 
-```{r data.prep}
+
+```r
 data("Boston", package  = "MASS")
 Boston.task <- makeRegrTask(data = Boston, target = "medv")
 
@@ -68,18 +53,19 @@ https://rawgit.com/pbiecek/DALEX_docs/master/vignettes/DALEX_mlr.html
 
 For the models created by mlr package we have to provide custom predict function which takes two arguments: model and newdata and returns a numeric vector with predictions because function predict() from mlr returns not only predictions but an object with more information.
 
-```{r}
+
+```r
 predictMLR <- function(object, newdata) {
   pred <- predict(object, newdata=newdata)
   response <- pred$data$response
   return(response)
 }
-
 ```
 
 ## build explainer
 
-```{r}
+
+```r
 library("DALEX")
 
 explainer.rf <-  DALEX::explain(model = model.regr.RF,
@@ -95,12 +81,16 @@ For more details of methods desribed in this section see Variable response secti
 
 ## ceteris paribus plot
 
-```{r ceteris_paribus, fig.height=8, fig.width=6}
+
+```r
 library("ceterisParibus")
+Loading required package: gower
 single.instance <- Boston[1, ]
 profile_rf <- ceteris_paribus(explainer.rf, observations = single.instance)
 plot(profile_rf)#, selected_variables = "dis")
 ```
+
+![](variable_responce_continuous_files/figure-html/ceteris_paribus-1.png)<!-- -->
 
 ## ICE plot with neghbor instances
 
@@ -108,7 +98,8 @@ we highlight residuals with red intervals. Residuals here are relatively small w
 
 Blue point stands for the point of interests. Red points are the neighbours. The blue curve is the Ceteris Paribus profile for the blue observation. The red intervals are residuals - differences between the true label and the model response. The grey profiles are Ceteris Paribus profiles for neighbours.
 
-```{r}
+
+```r
 neighbours <- select_neighbours(Boston, observation = single.instance, n = 10)
 profile.rf.neig  <- ceteris_paribus(explainer.rf,  
                                     observations = neighbours, 
@@ -127,7 +118,10 @@ cp.neigh <- plot(profile.rf.neig,
 
 cp.neigh
 ```
-```{r}
+
+![](variable_responce_continuous_files/figure-html/unnamed-chunk-3-1.png)<!-- -->
+
+```r
 cp.neigh +
   ceteris_paribus_layer(
     profile.rf.neig, 
@@ -137,7 +131,10 @@ cp.neigh +
     size = 3, alpha = 1, color = "green")
 ```
 
-```{r}
+![](variable_responce_continuous_files/figure-html/unnamed-chunk-4-1.png)<!-- -->
+
+
+```r
 profile.rf.all  <- ceteris_paribus(explainer.rf,  
                                     observations = Boston, 
                                     y = Boston$medv)
@@ -153,9 +150,9 @@ plot(profile.rf.all,
     aggregate_profiles = mean,
     show_observations = FALSE,
     size = 2, alpha = 1, color = "green")
-
-
 ```
+
+![](variable_responce_continuous_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
 
 ## Partial Dependence Plot
 
@@ -164,17 +161,23 @@ according to:
 https://pbiecek.github.io/DALEX_docs/5-1-cetParSingleObseSingleModel.html
 
 
-```{r}
+
+```r
 pdp  <- variable_response(explainer.rf, variable =  target.feature, type = "pdp")
 
 plot(pdp)
 ```
 
+![](variable_responce_continuous_files/figure-html/unnamed-chunk-6-1.png)<!-- -->
+
 ## Acumulated Local Effects plot
-```{r}
+
+```r
 ale  <- variable_response(explainer.rf, variable =  target.feature, type = "ale")
 
 plot(ale)
 ```
+
+![](variable_responce_continuous_files/figure-html/unnamed-chunk-7-1.png)<!-- -->
 
 

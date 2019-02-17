@@ -10,6 +10,7 @@ output:
     - markdown+autolink_bare_uris+tex_math_single_backslash-implicit_figures
     toc: yes
     toc_depth: 4
+    keep_md: yes
   word_document:
     toc: yes
     toc_depth: 3
