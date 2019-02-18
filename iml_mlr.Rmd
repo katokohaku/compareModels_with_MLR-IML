@@ -91,7 +91,34 @@ pdp.obj$center(min(Boston$rm))
 plot(pdp.obj)
 ```
 
-Surrogate model
+# Measure interactions
+ 
+ We can also measure how strongly features interact with each other. The interaction measure regards how much of the variance of f(x) is explained by the interaction. The measure is between 0 (no interaction) and 1 (= 100% of variance of f(x) due to interactions). For each feature, we measure how much they interact with any other feature:
+
+```{r}
+interact = Interaction$new(predictor)
+plot(interact)
+
+```
+
+We can also specify a feature and measure all itÅfs 2-way interactions with all other features:
+
+```{r}
+interact = Interaction$new(predictor, feature = "crim")
+plot(interact)
+
+```
+
+You can also plot the feature effects for all features at once:
+
+```{r}
+effs = FeatureEffects$new(predictor)
+plot(effs)
+
+```
+
+# Groval surrogate model
+
 Another way to make the models more interpretable is to replace the black box with a simpler model ??? a decision tree. We take the predictions of the black box model (in our case the random forest) and train a decision tree on the original features and the predicted outcome.
 The plot shows the terminal nodes of the fitted tree.
 The maxdepth parameter controls how deep the tree can grow and therefore how interpretable it is.
