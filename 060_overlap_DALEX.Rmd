@@ -1,0 +1,117 @@
+---
+title: "measure variable responces of categorical feature with DALEX + mlr"
+author: "Satoshi Kato"
+date: "`r format(Sys.time(), '%Y/%m/%d')`"
+output:
+  html_document:
+    fig_caption: yes
+    pandoc_args:
+    - --from
+    - markdown+autolink_bare_uris+tex_math_single_backslash-implicit_figures
+    toc: yes
+    toc_depth: 4
+    keep_md: yes
+  word_document:
+    toc: yes
+    toc_depth: 3
+  pdf_document:
+    toc: yes
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+require(tidyverse)
+require(mlr)
+require(iml)
+
+knitr::opts_knit$set(progress = TRUE, 
+                     verbose = TRUE, 
+                     root.dir = ".")
+
+knitr::opts_chunk$set(collapse = FALSE, 
+                      prompt  = FALSE,
+                      comment = "", 
+                      message = TRUE, 
+                      warning = FALSE, 
+                      echo=TRUE)
+set.seed(12345)
+```
+
+# read mlr models
+
+regression task for apartments dataset.
+
+```{r mlr.prep, message=FALSE}
+tuned.model <- readRDS("./tuned_models.RDS")
+# tuned.model %>% str(2)
+
+```
+
+
+# iml + mlr
+
+according to:
+
+https://www.r-bloggers.com/interpretable-machine-learning-with-iml-and-mlr/
+
+
+# build predictor
+
+## simple
+
+```{r}
+require("iml")
+# X = Boston[which(names(Boston) != "medv")]
+require(DALEX)
+data("apartmentsTest", package = "DALEX")
+X = apartmentsTest %>% select(-m2.price)
+Y = apartmentsTest$m2.price
+
+predictor.rf <- Predictor$new(tuned.model[["rf"]], data = X, y = Y)
+```
+
+
+## multiple predictor
+
+```{r}
+model.labels <- names(tuned.model)
+predictor    <- list()
+
+for(model.name in model.labels){
+  predictor[[model.name]] <- Predictor$new(tuned.model[[model.name]], data = X, y = Y)
+}
+
+```
+
+
+# Feature importance
+
+We can measure how important each feature was for the predictions with FeatureImp. The feature importance measure works by shuffling each feature and measuring how much the performance drops. For this regression task we choose to measure the loss in performance with the mean absolute error (emaef); another choice would be the mean squared error (emsef).
+
+Allowed losses are: "ce", "f1", "logLoss", "mae", "mse", "rmse", "mape", "mdae", "msle", "percent_bias", "rae", "rmse", "rmsle", "rse", "rrse", "smape"
+
+## simple
+
+```{r}
+imp <- FeatureImp$new(predictor.rf, loss = "mae")
+plot(imp)
+
+print(imp)
+```
+# Partial dependence
+
+Besides learning which features were important, we are interested in how the features influence the predicted outcome. The Partial class implements partial dependence plots and individual conditional expectation curves. Each individual line represents the predictions (y-axis) for one data point when we change one of the features (e.g. elstatf on the x-axis). The highlighted line is the point-wise average of the individual lines and equals the partial dependence plot. The marks on the x-axis indicates the distribution of the elstatf feature, showing how relevant a region is for interpretation (little or no points mean that we should not over-interpret this region).
+
+```{r}
+pdp.obj <- Partial$new(predictor.rf, feature = "construction.year")
+plot(pdp.obj)
+
+```
+```{r}
+pdp.obj$set.feature("surface")
+pdp.obj$center(min(apartmentsTest$surface))
+plot(pdp.obj)
+```
+

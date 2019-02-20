@@ -39,7 +39,7 @@ set.seed(12345)
 
 # read mlr models
 
-regression task for Boston dataset.
+regression task.
 
 ```{r data.prep}
 library("DALEX")
