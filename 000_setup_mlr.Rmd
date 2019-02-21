@@ -48,18 +48,29 @@ install.packages(c("DALEX", "iml"), dependencies = TRUE)
 
 ```
 
-# create an mlr task and model
 
-regression task for Boston dataset.
+# Data
+```{r}
+data(apartments, package = "DALEX")
+data(apartmentsTest, package = "DALEX")
+
+apartments %>% str()
+```
+
+# setup mlr task, tune and resample.
+
+regression task for `apartments` dataset.
+
 
 ```{r mlr.init}
-data(apartments, package = "DALEX")
 task <- makeRegrTask(id = "ap", data = apartments, target = "m2.price")
-tune.ctrl <- makeTuneControlRandom()
-res.desc  <- makeResampleDesc("CV", iters = 2)
+task %>% print()
 
-learner <- NULL
-par.set <- NULL
+tune.ctrl <- makeTuneControlRandom()
+tune.ctrl %>% print()
+
+res.desc <- makeResampleDesc("CV", iters = 2)
+res.desc %>% print()
 
 ```
 
@@ -71,6 +82,12 @@ listLearners(task) %>%
 ```
 
 # Model setup 
+
+```{r}
+learner <- NULL
+par.set <- NULL
+
+```
 
 ## linear regression with penalty (elastincnet)
 
@@ -115,45 +132,70 @@ par.set[["gbm"]] <- makeParamSet(
 
 ```
 
+```{r}
+learner %>% print()
+par.set %>% print()
+
+```
+
 # tune model
 
-```{r tune.model, message=FALSE}
+```{r tune.parset, message=FALSE}
 model.labels <- names(learner)
-# print(model.names)
 
 tuned.par.set <- NULL
-tuned.model   <- NULL
 
 for(model.name in model.labels) {
   
-  print(model.name)
+  # print(model.name)
   tuned.par.set[[model.name]] <- tuneParams(
     learner[[model.name]], 
     task = task, 
     resampling = res.desc,
     par.set = par.set[[model.name]],
     control = tune.ctrl)
+}
+
+tuned.par.set %>% print()
+
+```
+
+## Create a new model using tuned hyperparameters
+
+```{r setHyperPars, message=FALSE}
+
+tuned.learner <- list()
+
+for(model.name in model.labels) {
   
-  # Create a new model using tuned hyperparameters
-  tuned.learner <- setHyperPars(
+  # print(model.name)
+  tuned.learner[[model.name]] <- setHyperPars(
     learner = learner[[model.name]],
     par.vals = tuned.par.set[[model.name]]$x
   )
-  
-  # Re-train parameters using tuned hyperparameters (and full training set)
-  tuned.model[[model.name]] <- train(tuned.learner, task)
-  
+
 }
 
-
-saveRDS(tuned.model, "./tuned_models.RDS")
+tuned.learner %>% print()
 ```
 
-```{r}
-for(model.name in model.labels){
-  print(model.name)
-  print(tuned.model[[model.name]])
+## Re-train parameters using tuned hyperparameters (and full training set)
+  
+```{r tune.model, message=FALSE}
+model.labels <- names(learner)
+
+tuned.model   <- NULL
+
+for(model.name in model.labels) {
+  tuned.model[[model.name]] <- train(tuned.learner[[model.name]], task)
 }
+
+tuned.model %>% print()
+```
+
+
+```{r}
+saveRDS(tuned.model, "./tuned_models.RDS")
 
 ```
 

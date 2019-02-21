@@ -1,7 +1,7 @@
 ---
 title: "measure variable responces of categorical feature with DALEX + mlr"
 author: "Satoshi Kato"
-date: "`r format(Sys.time(), '%Y/%m/%d')`"
+date: "2019/02/21"
 output:
   html_document:
     fig_caption: yes
@@ -21,32 +21,16 @@ editor_options:
   chunk_output_type: inline
 ---
 
-```{r setup, include=FALSE}
-require(tidyverse)
-require(mlr)
-require(iml)
 
-knitr::opts_knit$set(progress = TRUE, 
-                     verbose = TRUE, 
-                     root.dir = ".")
-
-knitr::opts_chunk$set(collapse = FALSE, 
-                      prompt  = FALSE,
-                      comment = "", 
-                      message = TRUE, 
-                      warning = FALSE, 
-                      echo=TRUE)
-set.seed(12345)
-```
 
 # read mlr models
 
 regression task for apartments dataset.
 
-```{r mlr.prep, message=FALSE}
+
+```r
 tuned.model <- readRDS("./tuned_models.RDS")
 # tuned.model %>% str(2)
-
 ```
 
 
@@ -61,10 +45,33 @@ https://www.r-bloggers.com/interpretable-machine-learning-with-iml-and-mlr/
 
 ## simple
 
-```{r}
+
+```r
 require("iml")
 # X = Boston[which(names(Boston) != "medv")]
 require(DALEX)
+```
+
+```
+Loading required package: DALEX
+```
+
+```
+Welcome to DALEX (version: 0.2.6).
+```
+
+```
+
+Attaching package: 'DALEX'
+```
+
+```
+The following object is masked from 'package:dplyr':
+
+    explain
+```
+
+```r
 data("apartmentsTest", package = "DALEX")
 X = apartmentsTest %>% select(-m2.price)
 Y = apartmentsTest$m2.price
@@ -75,14 +82,14 @@ predictor.rf <- Predictor$new(tuned.model[["rf"]], data = X, y = Y)
 
 ## multiple predictor
 
-```{r}
+
+```r
 model.labels <- names(tuned.model)
 predictor    <- list()
 
 for(model.name in model.labels){
   predictor[[model.name]] <- Predictor$new(tuned.model[[model.name]], data = X, y = Y)
 }
-
 ```
 
 
@@ -90,31 +97,40 @@ for(model.name in model.labels){
  
  We can also measure how strongly features interact with each other. The interaction measure regards how much of the variance of f(x) is explained by the interaction. The measure is between 0 (no interaction) and 1 (= 100% of variance of f(x) due to interactions). For each feature, we measure how much they interact with any other feature:
 
-```{r}
+
+```r
 interact.rf <- Interaction$new(predictor.rf)
 plot(interact.rf)
-
 ```
+
+![](040_feature_interaction_files/figure-html/unnamed-chunk-3-1.png)<!-- -->
 
 We can also specify a feature and measure all itÅfs 2-way interactions with all other features:
 
-```{r, cache=TRUE}
+
+```r
 interact.2way.rf <- Interaction$new(predictor.rf, feature = "surface")
 
 plot(interact.2way.rf)
-
 ```
+
+![](040_feature_interaction_files/figure-html/unnamed-chunk-4-1.png)<!-- -->
 
 You can also plot the feature effects for all features at once:
 
-```{r fig.height=5, fig.width=8}
+
+```r
 effs.a <- FeatureEffects$new(predictor.rf, method="ale")
 plot(effs.a)
+```
 
+![](040_feature_interaction_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
 
+```r
 effs.p <- FeatureEffects$new(predictor.rf, method="pdp+ice")
 plot(effs.p)
-
 ```
+
+![](040_feature_interaction_files/figure-html/unnamed-chunk-5-2.png)<!-- -->
 
 
