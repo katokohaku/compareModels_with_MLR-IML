@@ -1,0 +1,175 @@
+---
+title: "surrogate model with iml + mlr"
+author: "Satoshi Kato"
+date: "`r format(Sys.time(), '%Y/%m/%d')`"
+output:
+  html_document:
+    fig_caption: yes
+    pandoc_args:
+    - --from
+    - markdown+autolink_bare_uris+tex_math_single_backslash-implicit_figures
+    toc: yes
+    toc_depth: 4
+    keep_md: yes
+  word_document:
+    toc: yes
+    toc_depth: 3
+  pdf_document:
+    toc: yes
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+require(tidyverse)
+require(mlr)
+require(iml)
+
+knitr::opts_knit$set(progress = TRUE, 
+                     verbose = TRUE, 
+                     root.dir = ".")
+
+knitr::opts_chunk$set(collapse = FALSE, 
+                      prompt  = FALSE,
+                      comment = "", 
+                      message = TRUE, 
+                      warning = FALSE, 
+                      echo=TRUE)
+set.seed(12345)
+```
+
+# read mlr models
+
+regression task for apartments dataset.
+
+```{r mlr.prep, message=FALSE}
+tuned.model <- readRDS("./tuned_models.RDS")
+# tuned.model %>% str(2)
+
+```
+
+
+# iml + mlr
+
+according to:
+
+https://www.r-bloggers.com/interpretable-machine-learning-with-iml-and-mlr/
+
+
+# build predictor
+
+## simple
+
+```{r}
+require("iml")
+# X = Boston[which(names(Boston) != "medv")]
+require(DALEX)
+data("apartmentsTest", package = "DALEX")
+X = apartmentsTest %>% select(-m2.price)
+Y = apartmentsTest$m2.price
+
+predictor.rf <- Predictor$new(tuned.model[["rf"]], data = X, y = Y)
+```
+
+
+## multiple predictor
+
+```{r}
+model.labels <- names(tuned.model)
+predictor    <- list()
+
+for(model.name in model.labels){
+  predictor[[model.name]] <- Predictor$new(tuned.model[[model.name]], data = X, y = Y)
+}
+
+```
+
+
+# Explain single predictions with a local model
+
+Global surrogate model can improve the understanding of the global model behaviour.
+We can also fit a model locally to understand an individual prediction better. The local model fitted by LocalModel is a linear regression model and the data points are weighted by how close they are to the data point for wich we want to explain the prediction.
+
+https://rawgit.com/pbiecek/DALEX_docs/master/vignettes/Comparison_between_breakdown%2C_lime%2C_shapley.html
+
+
+
+```{r, message=FALSE}
+
+lime.explain <- LocalModel$new(predictor.rf, x.interest = X[1,])
+lime.explain$results
+
+```
+
+```{r}
+plot(lime.explain)
+
+```
+
+
+
+```{r fig.height=4, fig.width=9}
+lime <- plime <- list()
+
+for(model.name in model.labels){
+  lime[[model.name]]  <- LocalModel$new(predictor[[model.name]], x.interest = X[10,])
+  plime[[model.name]] <- plot(lime[[model.name]]) + labs(tag = model.name)
+}
+
+gridExtra::grid.arrange(grobs = plime, ncol=2)
+```
+
+
+# Explain single predictions with game theory
+
+An alternative for explaining individual predictions is a method from coalitional game theory named Shapley value.
+Assume that for one data point, the feature values play a game together, in which they get the prediction as a payout. The Shapley value tells us how to fairly distribute the payout among the feature values.
+
+```{r, message=FALSE}
+
+shapley <- Shapley$new(predictor.rf, x.interest = X[10,])
+plot(shapley)
+
+```
+
+```{r fig.height=6, fig.width=9}
+set.seed(8)
+shap <- pshap <- list()
+
+for(model.name in model.labels){
+  shap[[model.name]]  <- Shapley$new(predictor[[model.name]], x.interest = X[10,])
+  pshap[[model.name]] <- plot(shap[[model.name]], sort=FALSE) + labs(tag = model.name)
+}
+
+gridExtra::grid.arrange(grobs = pshap, ncol=2)
+```
+
+
+default sample size of Shapley is 100. This size sometimes cause degradation of estimated accuracy.
+
+```{r fig.height=3, fig.width=9}
+set.seed(1)
+shapley.1 <- Shapley$new(predictor[["enet"]], x.interest = X[10,])
+p1 <- plot(shapley.1, sort=FALSE)
+
+set.seed(8)
+shapley.2 <- Shapley$new(predictor[["enet"]], x.interest = X[10,])
+p2 <- plot(shapley.2, sort=FALSE)
+
+gridExtra::grid.arrange(p1, p2, ncol=2)
+```
+
+More sample size, more accurate (but the estimation becomes slower).
+
+```{r fig.height=3, fig.width=9}
+set.seed(1)
+shapley.1 <- Shapley$new(predictor[["enet"]], x.interest = X[10,], sample.size = 100 * 10)
+p1 <- plot(shapley.1, sort=FALSE)
+
+set.seed(8)
+shapley.2 <- Shapley$new(predictor[["enet"]], x.interest = X[10,], sample.size = 100 * 10)
+p2 <- plot(shapley.2, sort=FALSE)
+
+gridExtra::grid.arrange(p1, p2, ncol=2)
+```

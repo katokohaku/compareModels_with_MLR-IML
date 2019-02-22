@@ -1,7 +1,7 @@
 ---
 title: "surrogate model with iml + mlr"
 author: "Satoshi Kato"
-date: "`r format(Sys.time(), '%Y/%m/%d')`"
+date: "2019/02/22"
 output:
   html_document:
     fig_caption: yes
@@ -21,32 +21,16 @@ editor_options:
   chunk_output_type: inline
 ---
 
-```{r setup, include=FALSE}
-require(tidyverse)
-require(mlr)
-require(iml)
 
-knitr::opts_knit$set(progress = TRUE, 
-                     verbose = TRUE, 
-                     root.dir = ".")
-
-knitr::opts_chunk$set(collapse = FALSE, 
-                      prompt  = FALSE,
-                      comment = "", 
-                      message = TRUE, 
-                      warning = FALSE, 
-                      echo=TRUE)
-set.seed(12345)
-```
 
 # read mlr models
 
 regression task for apartments dataset.
 
-```{r mlr.prep, message=FALSE}
+
+```r
 tuned.model <- readRDS("./tuned_models.RDS")
 # tuned.model %>% str(2)
-
 ```
 
 
@@ -61,10 +45,33 @@ https://www.r-bloggers.com/interpretable-machine-learning-with-iml-and-mlr/
 
 ## simple
 
-```{r}
+
+```r
 require("iml")
 # X = Boston[which(names(Boston) != "medv")]
 require(DALEX)
+```
+
+```
+Loading required package: DALEX
+```
+
+```
+Welcome to DALEX (version: 0.2.6).
+```
+
+```
+
+Attaching package: 'DALEX'
+```
+
+```
+The following object is masked from 'package:dplyr':
+
+    explain
+```
+
+```r
 data("apartmentsTest", package = "DALEX")
 X = apartmentsTest %>% select(-m2.price)
 Y = apartmentsTest$m2.price
@@ -75,14 +82,14 @@ predictor.rf <- Predictor$new(tuned.model[["rf"]], data = X, y = Y)
 
 ## multiple predictor
 
-```{r}
+
+```r
 model.labels <- names(tuned.model)
 predictor    <- list()
 
 for(model.name in model.labels){
   predictor[[model.name]] <- Predictor$new(tuned.model[[model.name]], data = X, y = Y)
 }
-
 ```
 
 
@@ -94,7 +101,10 @@ The plot shows the terminal nodes of the fitted tree.
 The maxdepth parameter controls how deep the tree can grow and therefore how interpretable it is.
 
 
-```{r}
+
+```r
 tree = TreeSurrogate$new(predictor.rf, maxdepth = 2)
 plot(tree)
 ```
+
+![](050_globalSurrogate_TreeModel_iml_files/figure-html/unnamed-chunk-3-1.png)<!-- -->
