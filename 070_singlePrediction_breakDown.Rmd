@@ -1,0 +1,144 @@
+---
+title: "measure variable responces of categorical feature with DALEX + mlr"
+author: "Satoshi Kato"
+date: "`r format(Sys.time(), '%Y/%m/%d')`"
+output:
+  html_document:
+    fig_caption: yes
+    pandoc_args:
+    - --from
+    - markdown+autolink_bare_uris+tex_math_single_backslash-implicit_figures
+    toc: yes
+    toc_depth: 4
+    keep_md: yes
+  word_document:
+    toc: yes
+    toc_depth: 3
+  pdf_document:
+    toc: yes
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+require(tidyverse)
+require(mlr)
+require(iml)
+
+knitr::opts_knit$set(progress = TRUE, 
+                     verbose = TRUE, 
+                     root.dir = ".")
+
+knitr::opts_chunk$set(collapse = FALSE, 
+                      prompt  = FALSE,
+                      comment = "", 
+                      message = TRUE, 
+                      warning = FALSE, 
+                      echo=TRUE)
+set.seed(12345)
+```
+
+# read mlr models
+
+regression task for apartments dataset.
+
+```{r mlr.prep, message=FALSE}
+tuned.model <- readRDS("./tuned_models.RDS")
+# tuned.model %>% str(2)
+
+```
+
+# DALEX + mlr
+
+according to:
+
+https://rawgit.com/pbiecek/DALEX_docs/master/vignettes/DALEX_mlr.html
+
+# The explain() function
+
+## custom predict()
+
+For the models created by mlr package we have to provide custom predict function which takes two arguments: model and newdata and returns a numeric vector with predictions because function predict() from mlr returns not only predictions but an object with more information.
+
+```{r}
+predictMLR <- function(object, newdata) {
+  pred <- predict(object, newdata=newdata)
+  response <- pred$data$response
+  return(response)
+}
+
+```
+
+## simple plot
+
+```{r}
+require(breakDown)
+data("apartmentsTest", package = "DALEX")
+X <- apartmentsTest[,-1]
+
+target <- 1
+
+br.down.rf <- broken(
+  model = tuned.model[["rf"]], 
+  data  = X,
+  new_observation = X[target, ], 
+  direction = "down",
+  predict.function = predictMLR,
+  keep_distributions=TRUE)
+
+pbr.down.rf <- plot(br.down.rf) + ggtitle("direction = DOWN")
+
+```
+## plot  distributions of conditional propotions
+
+* 	if `keep_distributions = TRUE`, then the distribution of partial predictions is stored in addition to the average.
+* 	if `plot_distributions = TRUE`, if TRUE then distributions of conditional propotions will be plotted. This requires keep_distributions=TRUE in the broken.default().
+
+
+```{r}
+plot(br.down.rf, plot_distributions =TRUE)
+
+```
+
+## up and down
+
+```{r, fig.height=6, fig.width=9}
+br.up.rf <- broken(
+  model = tuned.model[["rf"]], 
+  data  = X,
+  new_observation = X[target, ], 
+  direction = "up",
+  predict.function = predictMLR,
+  keep_distributions=TRUE)
+
+pbr.up.rf <- plot(br.down.rf) + ggtitle("direction = UP")
+
+gridExtra::grid.arrange(pbr.down.rf, pbr.up.rf, ncol=2)
+
+```
+
+
+## multiple explainers
+
+```{r, fig.height=9, fig.width=6}
+pbr.down <- list()
+
+for(model.name in names(tuned.model)){
+  
+  br.down <- broken(
+    model = tuned.model[[model.name]], 
+    data  = X,
+    new_observation = X[target, ], 
+    direction = "down",
+    predict.function = predictMLR,
+    keep_distributions=TRUE)
+  
+  pbr.down[[model.name]] <- plot(br.down) + ggtitle(model.name)
+}
+
+gridExtra::grid.arrange(grobs = pbr.down, ncol=1)
+
+
+```
+
