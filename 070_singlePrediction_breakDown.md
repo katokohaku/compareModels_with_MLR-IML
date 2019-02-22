@@ -1,5 +1,5 @@
 ---
-title: "measure variable responces of categorical feature with DALEX + mlr"
+title: "Explain single prediction with breakDown + mlr"
 author: "Satoshi Kato"
 date: "2019/02/22"
 output:
@@ -23,7 +23,7 @@ editor_options:
 
 
 
-# read mlr models
+# load mlr models
 
 regression task for apartments dataset.
 
@@ -33,13 +33,12 @@ tuned.model <- readRDS("./tuned_models.RDS")
 # tuned.model %>% str(2)
 ```
 
-# DALEX + mlr
+# breakDown + mlr
 
 according to:
 
-https://rawgit.com/pbiecek/DALEX_docs/master/vignettes/DALEX_mlr.html
+https://rawgit.com/pbiecek/DALEX_docs/master/vignettes/Comparison_between_breakdown%2C_lime%2C_shapley.html
 
-# The explain() function
 
 ## custom predict()
 
@@ -80,8 +79,13 @@ br.down.rf <- broken(
   keep_distributions=TRUE)
 
 pbr.down.rf <- plot(br.down.rf) + ggtitle("direction = DOWN")
+pbr.down.rf
 ```
-## plot  distributions of conditional propotions
+
+![](070_singlePrediction_breakDown_files/figure-html/unnamed-chunk-2-1.png)<!-- -->
+
+
+## plot distributions of conditional propotions
 
 * 	if `keep_distributions = TRUE`, then the distribution of partial predictions is stored in addition to the average.
 * 	if `plot_distributions = TRUE`, if TRUE then distributions of conditional propotions will be plotted. This requires keep_distributions=TRUE in the broken.default().
@@ -106,15 +110,15 @@ br.up.rf <- broken(
   predict.function = predictMLR,
   keep_distributions=TRUE)
 
-pbr.up.rf <- plot(br.down.rf) + ggtitle("direction = UP")
+pbr.up.rf <- plot(br.up.rf) + ggtitle("direction = UP")
 
-gridExtra::grid.arrange(pbr.down.rf, pbr.up.rf, ncol=2)
+gridExtra::grid.arrange(pbr.down.rf, pbr.up.rf, ncol=1)
 ```
 
 ![](070_singlePrediction_breakDown_files/figure-html/unnamed-chunk-4-1.png)<!-- -->
 
 
-## multiple explainers
+## multiple comparison
 
 
 ```r

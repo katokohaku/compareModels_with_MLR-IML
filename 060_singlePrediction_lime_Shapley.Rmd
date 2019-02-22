@@ -1,5 +1,5 @@
 ---
-title: "surrogate model with iml + mlr"
+title: "Explain single prediction with iml + mlr"
 author: "Satoshi Kato"
 date: "`r format(Sys.time(), '%Y/%m/%d')`"
 output:
@@ -39,7 +39,7 @@ knitr::opts_chunk$set(collapse = FALSE,
 set.seed(12345)
 ```
 
-# read mlr models
+# load mlr models
 
 regression task for apartments dataset.
 

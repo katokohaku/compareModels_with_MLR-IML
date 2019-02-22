@@ -1,5 +1,5 @@
 ---
-title: "surrogate model with iml + mlr"
+title: "Explain single prediction with iml + mlr"
 author: "Satoshi Kato"
 date: "2019/02/22"
 output:
@@ -23,7 +23,7 @@ editor_options:
 
 
 
-# read mlr models
+# load mlr models
 
 regression task for apartments dataset.
 
