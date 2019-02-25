@@ -78,14 +78,10 @@ explainer.1 <-  explain(model = model.1,
                         y     = apartments$m2.price,
                         predict_function = predictMLR)
 
-vi.1 <- variable_importance(explainer     = explainer.1,
-                            type          = "difference")
-
+vi.1 <- variable_importance(explainer = explainer.1, type = "difference")
 plot(vi.1)
 
 ```
-
-
 
 
 # second model with multicollinearity
@@ -118,10 +114,9 @@ explainer.2 <-  explain(model = model.2,
 # Variable importance comparison
 
 
-```{r fig.height=8, fig.width=6}
-vi.2 <- variable_importance(explainer     = explainer.2,
-                            type          = "difference")
+```{r}
+vi.2 <- variable_importance(explainer = explainer.2, type = "difference")
 
-DALEX:::plot.variable_importance_explainer(vi.1, vi.2)
+DALEX:::plot(vi.1, vi.2)
 
 ```
