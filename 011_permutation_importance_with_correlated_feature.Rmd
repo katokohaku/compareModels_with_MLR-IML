@@ -1,0 +1,127 @@
+---
+title: "measure performance and feature importances with DALEX + mlr"
+author: "Satoshi Kato"
+date: "`r format(Sys.time(), '%Y/%m/%d')`"
+output:
+  html_document:
+    fig_caption: yes
+    pandoc_args:
+    - --from
+    - markdown+autolink_bare_uris+tex_math_single_backslash-implicit_figures
+    toc: yes
+    toc_depth: 4
+    keep_md: yes
+  word_document:
+    toc: yes
+    toc_depth: 3
+  pdf_document:
+    toc: yes
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+require(tidyverse)
+require(mlr)
+require(DALEX)
+require(iml)
+
+knitr::opts_knit$set(progress = TRUE, 
+                     verbose = TRUE, 
+                     root.dir = ".")
+
+knitr::opts_chunk$set(collapse = FALSE, 
+                      prompt  = FALSE,
+                      comment = "", 
+                      message = TRUE, 
+                      warning = FALSE, 
+                      echo=TRUE)
+set.seed(12345)
+```
+
+
+# permutation importance in the case with multicollinearity
+
+according to:
+
+https://explained.ai/rf-importance/index.html
+
+# 1st model 
+
+```{r}
+data(apartments, package = "DALEX")
+learner.rf <- makeLearner("regr.randomForest", par.vals = list(ntree = 1000, mtry = 3))
+
+apartments$no.rooms <- NULL
+task.1  <- makeRegrTask(id = "ap", data = apartments,    target = "m2.price")
+model.1 <- train(learner.rf, task.1)
+
+```
+
+## build explainer with custom predict() for mlr
+```{r}
+predictMLR <- function(object, newdata) {
+  pred <- predict(object, newdata=newdata)
+  response <- pred$data$response
+  return(response)
+}
+
+```
+
+## Variable importance
+
+```{r}
+explainer.1 <-  explain(model = model.1, 
+                        label = "original.data",
+                        data  = apartments %>% select(-m2.price), 
+                        y     = apartments$m2.price,
+                        predict_function = predictMLR)
+
+vi.1 <- variable_importance(explainer     = explainer.1,
+                            type          = "difference")
+
+plot(vi.1)
+
+```
+
+
+
+
+# second model with multicollinearity
+
+```{r}
+apartments.mc <- apartments %>% mutate(surface.mc = jitter(surface, amount = 1))
+apartments.mc %>% str()
+
+print(mc.lm <- lm(surface ~ surface.mc, data = apartments.mc))
+plot(surface ~ surface.mc, data = apartments.mc)
+abline(mc.lm, col="red",lwd=2)
+
+```
+
+
+```{r}
+
+task.2  <- makeRegrTask(id = "ap", data = apartments.mc, target = "m2.price")
+model.2 <- train(learner.rf, task.2)
+
+explainer.2 <-  explain(model = model.2, 
+                        label = "with.multicollinearity",
+                        data  = apartments.mc %>% select(-m2.price), 
+                        y     = apartments.mc$m2.price,
+                        predict_function = predictMLR)
+```
+
+
+
+# Variable importance comparison
+
+
+```{r fig.height=8, fig.width=6}
+vi.2 <- variable_importance(explainer     = explainer.2,
+                            type          = "difference")
+
+DALEX:::plot.variable_importance_explainer(vi.1, vi.2)
+
+```
