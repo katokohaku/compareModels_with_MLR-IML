@@ -65,6 +65,7 @@ predictMLR <- function(object, newdata) {
   pred <- predict(object, newdata=newdata)
   response <- pred$data$response
   return(response)
+  
 }
 
 ```
