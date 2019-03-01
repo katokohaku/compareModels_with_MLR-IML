@@ -1,6 +1,4 @@
-# compareModels_with_MLR-IML
-
-sample codes for TokyoR.76 presentation
+# sample codes for TokyoR.76 presentation
 
 * usage DALEX package with mlr
 * usage mlr package with mlr
